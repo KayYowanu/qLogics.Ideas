@@ -1,0 +1,80 @@
+@using qLogics.Ideas.Services
+@using qLogics.Ideas.Models
+
+@namespace qLogics.Ideas
+@inherits ModuleBase
+@inject IIdeasService IdeasService
+@inject NavigationManager NavigationManager
+
+@if (_Ideass == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <ActionLink Action="Add" Security="SecurityAccessLevel.Edit" Text="Add Project Idea" />
+    <br />
+    <br />
+    @if (@_Ideass.Count != 0)
+    {
+        <Pager Items="@_Ideass">
+            <Header>
+                <th style="width: 1px;">&nbsp;</th>
+                <th style="width: 1px;">&nbsp;</th>
+                <th>Idea-Title</th>
+                <th>Idea-Description</th>
+                <th>CreatedOn</th>
+            </Header>
+            <Row>
+                <td><ActionLink Action="Edit" Parameters="@($"id=" + context.IdeasId.ToString())" /></td>
+                <td><ActionDialog Header="Delete Ideas" Message="@("Are You Sure You Wish To Delete The " + context.Name + " Ideas?")" Action="Delete" Security="SecurityAccessLevel.Edit" Class="btn btn-danger" OnClick="@(async () => await Delete(context))" /></td>
+                <td>@context.Name</td>
+                <td>@context.Description</td>
+                <td>@context.CreatedOn</td>
+            </Row>
+        </Pager>
+    }
+    else
+    {
+        <p>No Ideass To Display</p>
+    }
+}
+
+@code {
+    public override List<Resource> Resources => new List<Resource>()
+    {
+        new Resource { ResourceType = ResourceType.Stylesheet, Url = ModulePath() + "Module.css" },
+        new Resource { ResourceType = ResourceType.Script, Url = ModulePath() + "Module.js" }
+    };
+
+    List<Ideas> _Ideass;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _Ideass = await IdeasService.GetIdeassAsync(ModuleState.ModuleId);
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading Ideas {Error}", ex.Message);
+            AddModuleMessage("Error Loading Ideas", MessageType.Error);
+        }
+    }
+
+    private async Task Delete(Ideas Ideas)
+    {
+        try
+        {
+            await IdeasService.DeleteIdeasAsync(Ideas.IdeasId, ModuleState.ModuleId);
+            await logger.LogInformation("Ideas Deleted {Ideas}", Ideas);
+            _Ideass = await IdeasService.GetIdeassAsync(ModuleState.ModuleId);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Deleting Ideas {Ideas} {Error}", Ideas, ex.Message);
+            AddModuleMessage("Error Deleting Ideas", MessageType.Error);
+        }
+    }
+}

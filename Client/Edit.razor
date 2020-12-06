@@ -1,0 +1,112 @@
+@using Oqtane.Modules.Controls
+@using qLogics.Ideas.Services
+@using qLogics.Ideas.Models
+
+@namespace qLogics.Ideas
+@inherits ModuleBase
+@inject IIdeasService IdeasService
+@inject NavigationManager NavigationManager
+
+<table class="table table-borderless">
+    <tr>
+        <td>
+            <Label For="name" HelpText="Write your project idea title">Title: </Label>
+        </td>
+        <td>
+            <input id="name" class="form-control" @bind="@_name" />
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <Label For="description" HelpText="Write your project idea description">Description: </Label>
+        </td>
+        <td>
+            <input id="description" class="form-control" @bind="@_description" />
+        </td>
+    </tr>
+</table>
+<button type="button" class="btn btn-success" @onclick="Save">Save</button>
+<NavLink class="btn btn-secondary" href="@NavigateUrl()">Cancel</NavLink>
+<br />
+<br />
+@if (PageState.Action == "Edit")
+{
+    <AuditInfo CreatedBy="@_createdby" CreatedOn="@_createdon" ModifiedBy="@_modifiedby" ModifiedOn="@_modifiedon"></AuditInfo>
+}
+
+@code {
+    public override SecurityAccessLevel SecurityAccessLevel => SecurityAccessLevel.Edit;
+
+    public override string Actions => "Add,Edit";
+
+    public override string Title => "Manage Project Ideas";
+
+    public override List<Resource> Resources => new List<Resource>()
+    {
+        new Resource { ResourceType = ResourceType.Stylesheet, Url = ModulePath() + "Module.css" }
+    };
+
+    int _id;
+    string _name;
+    string _description;
+    string _createdby;
+    DateTime _createdon;
+    string _modifiedby;
+    DateTime _modifiedon;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (PageState.Action == "Edit")
+            {
+                _id = Int32.Parse(PageState.QueryString["id"]);
+                Ideas Ideas = await IdeasService.GetIdeasAsync(_id, ModuleState.ModuleId);
+                if (Ideas != null)
+                {
+                    _name = Ideas.Name;
+                    _description = Ideas.Description;
+                    _createdby = Ideas.CreatedBy;
+                    _createdon = Ideas.CreatedOn;
+                    _modifiedby = Ideas.ModifiedBy;
+                    _modifiedon = Ideas.ModifiedOn;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Loading Ideas {IdeasId} {Error}", _id, ex.Message);
+            AddModuleMessage("Error Loading Ideas", MessageType.Error);
+        }
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            if (PageState.Action == "Add")
+            {
+                Ideas Ideas = new Ideas();
+                Ideas.ModuleId = ModuleState.ModuleId;
+                Ideas.Name = _name;
+                Ideas.Description = _description;
+                Ideas = await IdeasService.AddIdeasAsync(Ideas);
+                await logger.LogInformation("Ideas Added {Ideas}", Ideas);
+            }
+            else
+            {
+                Ideas Ideas = await IdeasService.GetIdeasAsync(_id, ModuleState.ModuleId);
+                Ideas.Name = _name;
+                Ideas.Description = _description;
+                await IdeasService.UpdateIdeasAsync(Ideas);
+                await logger.LogInformation("Ideas Updated {Ideas}", Ideas);
+            }
+            NavigationManager.NavigateTo(NavigateUrl());
+        }
+        catch (Exception ex)
+        {
+            await logger.LogError(ex, "Error Saving Ideas {Error}", ex.Message);
+            AddModuleMessage("Error Saving Ideas", MessageType.Error);
+        }
+    }
+}
